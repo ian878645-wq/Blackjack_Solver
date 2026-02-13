@@ -10,6 +10,7 @@ import java.util.Random;
 
 public class BlackjackAdvisor extends JFrame {
     private JTextField dealerCardField;
+    private JCheckBox canSplitCheckBox;
     private JLabel handValueLabel;
     private JLabel dealerValueLabel;
     private JLabel actionLabel;
@@ -17,18 +18,28 @@ public class BlackjackAdvisor extends JFrame {
     private JPanel resultPanel;
     private JPanel playerCardsPanel;
     private List<JTextField> cardFields;
+    private JPanel cardCountPanel;
     private JButton addCardButton;
     private JButton resetButton;
+    private JScrollPane cardsScrollPane;
+    private JPanel statsPanel;
+    private JLabel hitStatsLabel;
+    private JLabel standStatsLabel;
+    private JLabel doubleStatsLabel;
+    private JLabel splitStatsLabel;
+    private int cardCount = 0;
+    private JTextArea cCRecommendationTextArea;
 
     public BlackjackAdvisor() {
         setTitle("Blackjack Strategy Advisor");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(600, 700);
+        setSize(700, 900);
         setLocationRelativeTo(null);
+        setResizable(true);
 
         cardFields = new ArrayList<>();
 
-        // Main panel
+        // Main panel with color
         JPanel mainPanel = new JPanel();
         mainPanel.setBackground(new Color(240, 240, 245));
         mainPanel.setLayout(new BorderLayout(10, 10));
@@ -38,14 +49,41 @@ public class BlackjackAdvisor extends JFrame {
         titlePanel.setBackground(new Color(15, 71, 43));
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
         
-        JLabel titleLabel = new JLabel("Blackjack Strategy Advisor");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 22));
+        JLabel titleLabel = new JLabel("♠ Blackjack Strategy Advisor ♠");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
+        JLabel subtitleLabel = new JLabel("Get the optimal play for every hand");
+        subtitleLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+        subtitleLabel.setForeground(new Color(200, 200, 200));
+        subtitleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
         titlePanel.add(Box.createVerticalStrut(15));
         titlePanel.add(titleLabel);
+        titlePanel.add(Box.createVerticalStrut(5));
+        titlePanel.add(subtitleLabel);
         titlePanel.add(Box.createVerticalStrut(15));
+
+        // Header with small help icon on the right
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setOpaque(false);
+        headerPanel.add(titlePanel, BorderLayout.CENTER);
+        JLabel topHelp = new JLabel(" ? ");
+        topHelp.setFont(new Font("Arial", Font.BOLD, 14));
+        topHelp.setForeground(Color.WHITE);
+        topHelp.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        topHelp.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                String msg = "<html><b>Blackjack</b><br>Goal: Beat the dealer by getting closer to 21 without going over.<br>Face cards (J,Q,K)=10. Ace = 1 or 11. <br>Hit to add a card. Stand to keep current hand. Double Down to double your bet and take one more card. Split pairs when you have 2 of the same card. <br>This application will show you the optimal play in every situation. </html>";
+                JOptionPane.showMessageDialog(BlackjackAdvisor.this, msg, "About Blackjack", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+        JPanel helpWrap = new JPanel();
+        helpWrap.setBackground(new Color(15, 71, 43));
+        helpWrap.add(topHelp);
+        headerPanel.add(helpWrap, BorderLayout.EAST);
 
         // Input panel
         JPanel inputPanel = new JPanel();
@@ -64,7 +102,7 @@ public class BlackjackAdvisor extends JFrame {
         playerCardsPanel.setBackground(new Color(248, 249, 250));
         playerCardsPanel.setLayout(new BoxLayout(playerCardsPanel, BoxLayout.X_AXIS));
 
-        JScrollPane cardsScrollPane = new JScrollPane(playerCardsPanel);
+        cardsScrollPane = new JScrollPane(playerCardsPanel);
         cardsScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         cardsScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         cardsScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
@@ -82,11 +120,19 @@ public class BlackjackAdvisor extends JFrame {
         
         dealerCardField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
-            public void insertUpdate(DocumentEvent e) { updateRecommendation(); }
+            public void insertUpdate(DocumentEvent e) {
+                updateRecommendation();
+            }
+
             @Override
-            public void removeUpdate(DocumentEvent e) { updateRecommendation(); }
+            public void removeUpdate(DocumentEvent e) {
+                updateRecommendation();
+            }
+
             @Override
-            public void changedUpdate(DocumentEvent e) { updateRecommendation(); }
+            public void changedUpdate(DocumentEvent e) {
+                updateRecommendation();
+            }
         });
         
         JPanel dealerPanel = new JPanel();
@@ -99,6 +145,28 @@ public class BlackjackAdvisor extends JFrame {
         inputPanel.add(dealerCardLabel);
         inputPanel.add(Box.createVerticalStrut(3));
         inputPanel.add(dealerPanel);
+        inputPanel.add(Box.createVerticalStrut(8));
+
+        //Card count input panel
+        cardCountPanel = new JPanel();
+        cardCountPanel.setBackground(new Color(248, 249, 250));
+        cardCountPanel.setLayout(new BoxLayout(cardCountPanel, BoxLayout.X_AXIS));
+        cardCountPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+        //cardCountPanel.add(cardCountField);
+        cardCountPanel.add(Box.createHorizontalGlue());
+
+        // Split checkbox
+        canSplitCheckBox = new JCheckBox("I can split (I have a pair)");
+        canSplitCheckBox.setFont(new Font("Arial", Font.PLAIN, 12));
+        canSplitCheckBox.setBackground(new Color(248, 249, 250));
+        canSplitCheckBox.setEnabled(false);
+        canSplitCheckBox.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                updateRecommendation();
+            }
+        });
+        inputPanel.add(canSplitCheckBox);
         inputPanel.add(Box.createVerticalStrut(8));
 
         // Button panel
@@ -156,6 +224,43 @@ public class BlackjackAdvisor extends JFrame {
 
         inputPanel.add(buttonPanel);
 
+        // Card count / info panel (space between input and output)
+        cardCountPanel = new JPanel();
+        cardCountPanel.setBackground(new Color(248, 249, 250));
+        cardCountPanel.setLayout(new BoxLayout(cardCountPanel, BoxLayout.X_AXIS));
+        cardCountPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
+        // Initialize card count input before the info area so it displays first
+        addCountField();
+
+        cCRecommendationTextArea = new JTextArea(3, 40);
+        cCRecommendationTextArea.setFont(new Font("Arial", Font.PLAIN, 12));
+        cCRecommendationTextArea.setLineWrap(true);
+        cCRecommendationTextArea.setWrapStyleWord(true);
+        cCRecommendationTextArea.setEditable(false);
+        cCRecommendationTextArea.setBackground(new Color(255, 248, 225));
+        JScrollPane cCScrollPane = new JScrollPane(cCRecommendationTextArea);
+        cCScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        cCScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+        cCScrollPane.setBorder(BorderFactory.createTitledBorder("Info"));
+
+        cardCountPanel.add(Box.createHorizontalStrut(10));
+        cardCountPanel.add(cCScrollPane);
+        // Small help icon next to card-count/info
+        JLabel countHelp = new JLabel(" ? ");
+        countHelp.setFont(new Font("Arial", Font.BOLD, 12));
+        countHelp.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        countHelp.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                String msg = "<html><b>Card Counting</b><br>Card counting tracks which cards remain in the deck to estimate player advantage.<br>It can guide bet sizing and some decisions, but is advanced and not required to use this advisor.</html>";
+                JOptionPane.showMessageDialog(BlackjackAdvisor.this, msg, "About Card Counting", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+        cardCountPanel.add(Box.createHorizontalStrut(6));
+        cardCountPanel.add(countHelp);
+        inputPanel.add(cardCountPanel);
+        inputPanel.add(Box.createVerticalStrut(8));
+
         // Result panel
         resultPanel = new JPanel();
         resultPanel.setBackground(Color.WHITE);
@@ -186,7 +291,7 @@ public class BlackjackAdvisor extends JFrame {
         handInfoPanel.add(dealerValueLabel);
         
         resultPanel.add(handInfoPanel);
-        resultPanel.add(Box.createVerticalStrut(15));
+        resultPanel.add(Box.createVerticalStrut(20));
 
         // Recommendation section
         JLabel recommendationHeader = new JLabel("Recommended Action:");
@@ -201,6 +306,7 @@ public class BlackjackAdvisor extends JFrame {
         resultPanel.add(actionLabel);
         resultPanel.add(Box.createVerticalStrut(10));
         
+        // Card count/info area is created below and placed between input and output panels.
         // Reason section
         reasonTextArea = new JTextArea(2, 40);
         reasonTextArea.setEditable(false);
@@ -211,6 +317,37 @@ public class BlackjackAdvisor extends JFrame {
         reasonTextArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
         resultPanel.add(reasonTextArea);
+        resultPanel.add(Box.createVerticalStrut(20));
+
+        // Statistics section
+        JLabel statsHeader = new JLabel("Action Odds:");
+        statsHeader.setFont(new Font("Arial", Font.BOLD, 14));
+        resultPanel.add(statsHeader);
+        resultPanel.add(Box.createVerticalStrut(10));
+
+        statsPanel = new JPanel();
+        statsPanel.setBackground(new Color(240, 255, 240));
+        statsPanel.setLayout(new BoxLayout(statsPanel, BoxLayout.Y_AXIS));
+        statsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        hitStatsLabel = new JLabel("HIT: Win 50%");
+        hitStatsLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+        standStatsLabel = new JLabel("STAND: Win 45%");
+        standStatsLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+        doubleStatsLabel = new JLabel("DOUBLE: Win 50%");
+        doubleStatsLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+        splitStatsLabel = new JLabel("SPLIT: Win 48%");
+        splitStatsLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+
+        statsPanel.add(hitStatsLabel);
+        statsPanel.add(Box.createVerticalStrut(5));
+        statsPanel.add(standStatsLabel);
+        statsPanel.add(Box.createVerticalStrut(5));
+        statsPanel.add(doubleStatsLabel);
+        statsPanel.add(Box.createVerticalStrut(5));
+        statsPanel.add(splitStatsLabel);
+
+        resultPanel.add(statsPanel);
 
         // Scroll pane for result
         JScrollPane scrollPane = new JScrollPane(resultPanel);
@@ -219,19 +356,60 @@ public class BlackjackAdvisor extends JFrame {
         // Main layout
         JPanel topPanel = new JPanel();
         topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
-        topPanel.add(titlePanel);
+        topPanel.add(headerPanel);
         topPanel.add(inputPanel);
+        topPanel.add(cardCountPanel);
+        topPanel.add(Box.createVerticalStrut(10));
 
         mainPanel.add(topPanel, BorderLayout.NORTH);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
 
         add(mainPanel);
 
-        // Initialize with 2 card fields
+        // Initialize with 2 card fields after panels exist
         addCardField();
         addCardField();
 
         setVisible(true);
+    }
+
+    private void addCountField() {
+        JLabel cardCountLabel = new JLabel("Please Enter the True Count:");
+        cardCountLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        JTextField cardCountField = new JTextField(2);
+        cardCountField.setFont(new Font("Arial", Font.PLAIN, 14));
+        cardCountField.setMaximumSize(new Dimension(50, 40));
+        cardCountField.setPreferredSize(new Dimension(50, 40));
+        cardCountField.getDocument().addDocumentListener(new DocumentListener() {
+            private void update() {
+                String countText = cardCountField.getText().trim();
+                if (countText.isEmpty()) {
+                    cardCount = 0;
+                } else {
+                    try {
+                        cardCount = Integer.parseInt(countText);
+                    } catch (NumberFormatException ex) {
+                        // Invalid input -> treat as 0 temporarily
+                        cardCount = 0;
+                    }
+                }
+                updateRecommendation();
+            }
+
+            @Override
+            public void insertUpdate(DocumentEvent e) { update(); }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) { update(); }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) { update(); }
+        });
+            
+        cardCountPanel.add(cardCountLabel);
+        cardCountPanel.add(Box.createHorizontalStrut(10));
+        cardCountPanel.add(cardCountField);
+        cardCountPanel.add(Box.createHorizontalGlue());
     }
 
     private void addCardField() {
@@ -242,11 +420,19 @@ public class BlackjackAdvisor extends JFrame {
         
         cardField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
-            public void insertUpdate(DocumentEvent e) { updateRecommendation(); }
+            public void insertUpdate(DocumentEvent e) {
+                updateCheckboxAndRecommendation();
+            }
+
             @Override
-            public void removeUpdate(DocumentEvent e) { updateRecommendation(); }
+            public void removeUpdate(DocumentEvent e) {
+                updateCheckboxAndRecommendation();
+            }
+
             @Override
-            public void changedUpdate(DocumentEvent e) { updateRecommendation(); }
+            public void changedUpdate(DocumentEvent e) {
+                updateCheckboxAndRecommendation();
+            }
         });
         
         cardFields.add(cardField);
@@ -266,10 +452,47 @@ public class BlackjackAdvisor extends JFrame {
         playerCardsPanel.revalidate();
         playerCardsPanel.repaint();
         
+        updateCheckboxAndRecommendation();
+    }
+
+    private void updateCheckboxAndRecommendation() {
+        updateCheckboxAvailability();
         updateRecommendation();
     }
 
+    private void updateCheckboxAvailability() {
+        if (cardFields.size() >= 2) {
+            String card1 = cardFields.get(0).getText().trim();
+            String card2 = cardFields.get(1).getText().trim();
+            boolean isPair = isPair(card1, card2);
+            canSplitCheckBox.setEnabled(isPair && cardFields.size() == 2);
+            if (!isPair) {
+                canSplitCheckBox.setSelected(false);
+            }
+        } else {
+            canSplitCheckBox.setEnabled(false);
+            canSplitCheckBox.setSelected(false);
+        }
+    }
+
+    private boolean isPair(String card1, String card2) {
+        if (card1.isEmpty() || card2.isEmpty()) {
+            return false;
+        }
+        
+        try {
+            BlackjackStrategy strategy = new BlackjackStrategy();
+            int card1Value = strategy.cardValue(card1);
+            int card2Value = strategy.cardValue(card2);
+            
+            return card1Value == card2Value;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private void updateRecommendation() {
+        
         String dealerCardInput = dealerCardField.getText().trim();
 
         if (cardFields.size() < 2 || dealerCardInput.isEmpty()) {
@@ -298,6 +521,16 @@ public class BlackjackAdvisor extends JFrame {
             BlackjackStrategy strategy = new BlackjackStrategy();
             int playerValue = strategy.calculateHandValue(cardStrings);
             boolean hasAce = strategy.hasAce(cardStrings);
+            boolean canSplit = canSplitCheckBox.isSelected();
+
+            //Card Counting logic
+            String countingAdvice = strategy.getCardCountRecommendation(cardCount);
+            if (cCRecommendationTextArea != null) {
+                cCRecommendationTextArea.setText(countingAdvice);
+            } else {
+                // Fallback: append counting advice to reason area when card-count panel is disabled
+                reasonTextArea.setText(countingAdvice + "\n\n" + reasonTextArea.getText());
+            }
 
             // Check for bust
             if (playerValue > 21) {
@@ -305,7 +538,7 @@ public class BlackjackAdvisor extends JFrame {
                 dealerValueLabel.setText(dealerCardInput.toUpperCase());
                 actionLabel.setText("BUST!");
                 actionLabel.setForeground(new Color(200, 50, 50));
-                reasonTextArea.setText("You busted! Your hand value exceeds 21 and you lose.");
+                reasonTextArea.setText("You have busted with a hand value of " + playerValue + ". Your hand exceeds 21 and you lose.\n\nThe game will reset in 3 seconds...");
                 resultPanel.setVisible(true);
                 addCardButton.setEnabled(false);
                 
@@ -313,7 +546,7 @@ public class BlackjackAdvisor extends JFrame {
                 Timer timer = new Timer(3000, new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
-                        actionLabel.setForeground(new Color(15, 71, 43));
+                        actionLabel.setForeground(new Color(15, 71, 43)); // Reset color
                         resetGame();
                     }
                 });
@@ -323,18 +556,42 @@ public class BlackjackAdvisor extends JFrame {
             }
 
             String handName = strategy.getHandName(playerValue, hasAce);
-            BlackjackStrategy.Recommendation rec = strategy.getRecommendation(playerValue, hasAce, dealerCardInput, false);
+            BlackjackStrategy.Recommendation rec = strategy.getRecommendation(playerValue, hasAce, dealerCardInput, canSplit);
 
             handValueLabel.setText(handName);
             dealerValueLabel.setText(dealerCardInput.toUpperCase());
             actionLabel.setText(rec.action);
-            actionLabel.setForeground(new Color(15, 71, 43));
+            actionLabel.setForeground(new Color(15, 71, 43)); // Reset color to default
             reasonTextArea.setText(rec.reason);
+
+            // Calculate and display statistics (exact combinatorial calculator)
+            BlackjackStrategy.Statistics stats = strategy.calculateStatistics(cardStrings, dealerCardInput, canSplit && cardStrings.length == 2);
+            
+            hitStatsLabel.setText(String.format("■ HIT: Win %.0f%% | EV: %+.2f", stats.hitWinPercent, stats.hitEV));
+            hitStatsLabel.setForeground(getEVColor(stats.hitEV));
+            standStatsLabel.setText(String.format("■ STAND: Win %.0f%% | EV: %+.2f", stats.standWinPercent, stats.standEV));
+            standStatsLabel.setForeground(getEVColor(stats.standEV));
+            if (rec != null && "DOUBLE DOWN".equalsIgnoreCase(rec.action)) {
+                doubleStatsLabel.setText(String.format("■ DOUBLE: Win %.0f%% | EV: %+.2f", stats.doubleDownWinPercent, stats.doubleDownEV));
+                doubleStatsLabel.setForeground(getEVColor(stats.doubleDownEV));
+            } else {
+                doubleStatsLabel.setText("DOUBLE: do not Double Down");
+                doubleStatsLabel.setForeground(Color.GRAY);
+            }
+            if (canSplit && cardStrings.length == 2) {
+                splitStatsLabel.setText(String.format("■ SPLIT: Win %.0f%% | EV: %+.2f", stats.splitWinPercent, stats.splitEV));
+                splitStatsLabel.setForeground(getEVColor(stats.splitEV));
+            } else {
+                splitStatsLabel.setText("SPLIT: Not available");
+                splitStatsLabel.setForeground(Color.GRAY);
+            }
 
             resultPanel.setVisible(true);
             addCardButton.setEnabled(true);
         } catch (Exception e) {
-            reasonTextArea.setText("Error: " + e.getMessage());
+            // Log the exception for debugging and show a brief message in the UI
+            e.printStackTrace();
+            reasonTextArea.setText("Error computing recommendation: " + e.toString());
             resultPanel.setVisible(true);
             addCardButton.setEnabled(false);
         }
@@ -344,9 +601,12 @@ public class BlackjackAdvisor extends JFrame {
         cardFields.clear();
         playerCardsPanel.removeAll();
         dealerCardField.setText("");
+        canSplitCheckBox.setSelected(false);
+        canSplitCheckBox.setEnabled(false);
         resultPanel.setVisible(false);
         addCardButton.setEnabled(false);
         
+        // Reinitialize with 2 card fields
         addCardField();
         addCardField();
         
@@ -373,11 +633,56 @@ public class BlackjackAdvisor extends JFrame {
         dealerCardField.setText(dealerCard);
     }
 
+    private Color getEVColor(double ev) {
+        if (ev > 0.05) {
+            return new Color(34, 139, 34); // Dark green
+        } else if (ev < -0.05) {
+            return new Color(178, 34, 34); // Firebrick red
+        } else {
+            return new Color(184, 134, 11); // Dark goldenrod (neutral)
+        }
+    }
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new BlackjackAdvisor();
+                BlackjackAdvisor advisor = new BlackjackAdvisor();
+
+                // Debug helper: if JVM property autoDeal=true, programmatically deal a random hand
+                // and print the displayed stats to console to aid debugging.
+                String autoDeal = System.getProperty("autoDeal");
+                if ("true".equalsIgnoreCase(autoDeal)) {
+                    try {
+                        java.lang.reflect.Method m = BlackjackAdvisor.class.getDeclaredMethod("dealRandomHand");
+                        m.setAccessible(true);
+                        m.invoke(advisor);
+
+                        // allow UI to update
+                        Thread.sleep(300);
+
+                        java.lang.reflect.Field hitField = BlackjackAdvisor.class.getDeclaredField("hitStatsLabel");
+                        java.lang.reflect.Field standField = BlackjackAdvisor.class.getDeclaredField("standStatsLabel");
+                        java.lang.reflect.Field doubleField = BlackjackAdvisor.class.getDeclaredField("doubleStatsLabel");
+                        java.lang.reflect.Field splitField = BlackjackAdvisor.class.getDeclaredField("splitStatsLabel");
+                        hitField.setAccessible(true);
+                        standField.setAccessible(true);
+                        doubleField.setAccessible(true);
+                        splitField.setAccessible(true);
+
+                        javax.swing.JLabel hit = (javax.swing.JLabel) hitField.get(advisor);
+                        javax.swing.JLabel stand = (javax.swing.JLabel) standField.get(advisor);
+                        javax.swing.JLabel dbl = (javax.swing.JLabel) doubleField.get(advisor);
+                        javax.swing.JLabel split = (javax.swing.JLabel) splitField.get(advisor);
+
+                        System.out.println("[DEBUG] " + hit.getText());
+                        System.out.println("[DEBUG] " + stand.getText());
+                        System.out.println("[DEBUG] " + dbl.getText());
+                        System.out.println("[DEBUG] " + split.getText());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         });
     }
