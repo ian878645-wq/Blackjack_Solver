@@ -214,7 +214,7 @@ public class BlackjackAdvisor extends JFrame {
                 dealRandomHand();
             }
         });
-
+        
         buttonPanel.add(addCardButton);
         buttonPanel.add(Box.createHorizontalStrut(10));
         buttonPanel.add(resetButton);
@@ -546,7 +546,7 @@ public class BlackjackAdvisor extends JFrame {
                 Timer timer = new Timer(3000, new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
-                        actionLabel.setForeground(new Color(15, 71, 43)); // Reset color
+                        actionLabel.setForeground(new Color(15, 71, 43));
                         resetGame();
                     }
                 });

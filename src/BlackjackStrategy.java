@@ -59,7 +59,6 @@ public class BlackjackStrategy {
             total -= 10;
             aces--;
         }
-
         return total;
     }
 
@@ -114,11 +113,8 @@ public class BlackjackStrategy {
             int cardVal = playerValue / 2;
             
             if (cardVal == 11) {
-                // Split Aces against everything except Ace
-                if (dealerValue != 11) {
-                    return new Recommendation("SPLIT", "Split Aces against dealer 2-10.");
-                }
-                return new Recommendation("HIT", "Hit pair of Aces against dealer Ace.");
+                // Always split Aces
+                return new Recommendation("SPLIT", "Always split Aces.");
             }
             if (cardVal == 8) {
                 return new Recommendation("SPLIT", "Always split 8s.");
@@ -139,10 +135,13 @@ public class BlackjackStrategy {
                 return new Recommendation("HIT", "Hit pair of 7s otherwise.");
             }
             if (cardVal == 6) {
+                if (playerHasAce == true){
+                    return new Recommendation("Split", "Always split aces. ");
+                }
                 if (dealerValue >= 2 && dealerValue <= 6) {
                     return new Recommendation("SPLIT", "Split 6s against dealer 2-6.");
                 }
-                return new Recommendation("HIT", "Hit pair of 6s otherwise.");
+                return new Recommendation("HIT", "Hit when you have a pair of 6s otherwise.");
             }
             if (cardVal == 5) {
                 return new Recommendation("DOUBLE DOWN", "Double on pair of 5s (equals 10).");
@@ -162,6 +161,7 @@ public class BlackjackStrategy {
             if (cardVal == 10) {
                 return new Recommendation("STAND", "Never split 10s.");
             }
+            
         }
 
         // Soft hands (with Ace)
@@ -241,10 +241,8 @@ public class BlackjackStrategy {
     }
 
     public Statistics calculateStatistics(String[] playerCards, String dealerCard, boolean canSplit) {
-        // Build deck counts (4 of each rank) and remove known cards (player cards + dealer upcard)
+        // Build deck counts (4 of each rank) - do NOT remove cards in play
         java.util.Map<String, Integer> counts = buildDeckCounts();
-        for (String c : playerCards) removeCardFromCounts(counts, c);
-        removeCardFromCounts(counts, dealerCard);
 
         int playerValue = calculateHandValue(playerCards);
         boolean playerHasAce = hasAce(playerCards);
@@ -306,13 +304,91 @@ public class BlackjackStrategy {
         // Double: same single-card draw outcome probabilities as Hit
         double doubleWins = hitWins;
 
+        // Split: each hand plays independently
         double splitWins = 0.0;
-        if (canSplit) splitWins = 0.0; // not implemented for exact
+        if (canSplit && playerCards.length == 2) {
+            // Player splits, creating two hands with one card each (same value)
+            String splitCard = playerCards[0];
+            String[] hand1 = {splitCard};
+            String[] hand2 = {splitCard};
+            
+            // Remove both cards from deck
+            java.util.Map<String,Integer> splitCounts = copyCounts(counts);
+            removeCardFromCounts(splitCounts, splitCard);
+            
+            // For each possible next card for hand1, calculate wins
+            int splitRemaining = totalRemaining(splitCounts);
+            if (splitRemaining > 0) {
+                for (String rank : new java.util.ArrayList<>(splitCounts.keySet())) {
+                    int cnt = splitCounts.get(rank);
+                    if (cnt <= 0) continue;
+                    double pDraw1 = (double) cnt / splitRemaining;
+                    
+                    // Hand1 draws this card
+                    String[] hand1After = appendCard(hand1, rank);
+                    int hand1Value = calculateHandValue(hand1After);
+                    
+                    if (hand1Value > 21) {
+                        // Hand1 busts - contributes 0 to split wins
+                        continue;
+                    }
+                    
+                    // Build counts after hand1 draws
+                    java.util.Map<String,Integer> afterHand1 = copyCounts(splitCounts);
+                    removeCardFromCounts(afterHand1, rank);
+                    
+                    // For each possible next card for hand2
+                    int remaining2 = totalRemaining(afterHand1);
+                    if (remaining2 > 0) {
+                        for (String rank2 : new java.util.ArrayList<>(afterHand1.keySet())) {
+                            int cnt2 = afterHand1.get(rank2);
+                            if (cnt2 <= 0) continue;
+                            double pDraw2 = (double) cnt2 / remaining2;
+                            
+                            // Hand2 draws this card
+                            String[] hand2After = appendCard(hand2, rank2);
+                            int hand2Value = calculateHandValue(hand2After);
+                            
+                            if (hand2Value > 21) {
+                                // Hand2 busts
+                                continue;
+                            }
+                            
+                            // Build counts after hand2 draws
+                            java.util.Map<String,Integer> afterHand2 = copyCounts(afterHand1);
+                            removeCardFromCounts(afterHand2, rank2);
+                            
+                            // Compute dealer distribution
+                            java.util.Map<Integer, Double> dealerDist = computeDealerDistribution(afterHand2, dealerCard);
+                            
+                            // Evaluate both hands
+                            double hand1Wins = 0.0;
+                            double hand2Wins = 0.0;
+                            for (java.util.Map.Entry<Integer, Double> e : dealerDist.entrySet()) {
+                                int d = e.getKey();
+                                double p = e.getValue();
+                                if (d == 22) { // dealer bust
+                                    hand1Wins += p;
+                                    hand2Wins += p;
+                                } else {
+                                    if (hand1Value > d) hand1Wins += p;
+                                    if (hand2Value > d) hand2Wins += p;
+                                }
+                            }
+                            
+                            // Add contribution from this outcome (average of two hands)
+                            double prob = pDraw1 * pDraw2;
+                            splitWins += prob * (hand1Wins + hand2Wins) / 2.0;
+                        }
+                    }
+                }
+            }
+        }
 
         double standEV = 2.0 * standWins - 1.0;
         double hitEV = 2.0 * hitWins - 1.0;
         double doubleEV = 4.0 * doubleWins - 2.0;
-        double splitEV = 0.0;
+        double splitEV = 2.0 * splitWins - 1.0;
 
         return new Statistics(standWins * 100, hitWins * 100, doubleWins * 100, splitWins * 100,
                 standEV, hitEV, doubleEV, splitEV);
